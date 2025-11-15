@@ -64,7 +64,7 @@ public class Portfolio {
             holdings[holdingsCount] = new StockHolding(stock, quantity);
             holdingsCount++;
         } else {
-            System.out.println("Portfolio is full. Cannot add new stock type: " + stock.getSymbol());
+           throw new IllegalStateException("Portfolio limit reached. Cannot add a new unique stock type.");
         }
     }
 
