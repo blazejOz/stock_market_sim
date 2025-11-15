@@ -22,7 +22,6 @@ public class Portfolio {
         }
     }
 
-    // Klasa reprezentująca pojedynczą pozycję w portfelu (akcja + ilość)
     private static class StockHolding {
         Stock stock;
         int quantity;
