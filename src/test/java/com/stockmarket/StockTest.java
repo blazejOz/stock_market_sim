@@ -15,7 +15,7 @@ public class StockTest {
 
     //Getters and Setters Tests
     @Test
-    @DisplayName("Initialization and Getters")
+    @DisplayName("Should initialize stock and use getters")
     void testInitializationAndCapitalization() {
         Stock stock = new Stock("goog", "Google Inc.", 1200.0);
         assertEquals("GOOG", stock.getSymbol());
@@ -23,7 +23,7 @@ public class StockTest {
     }
 
     @Test
-    @DisplayName("Set new price")
+    @DisplayName("Should set new price correctly")
     void testSetPrice() {
         Stock stock = new Stock("MSFT", "Microsoft", 100.0);
         stock.setPrice(150.5);
@@ -32,7 +32,7 @@ public class StockTest {
 
     // Symbol Validation Tests
     @ParameterizedTest()
-    @DisplayName("Constructor: exception for ALL invalid Symbols")
+    @DisplayName("Should throw exception for ALL invalid Symbols in constructor")
     @NullAndEmptySource
     @ValueSource(strings = {" ", "ABCDEF", "GGLONG"}) 
     void testInvalidSymbolValidation(String invalidSymbol) {
@@ -43,7 +43,7 @@ public class StockTest {
 
     // Name Validation Tests
     @ParameterizedTest()
-    @DisplayName("Constructor: exception for ALL invalid Names")
+    @DisplayName("Should throw exception for ALL invalid Names in constructor")
     @NullAndEmptySource
     @ValueSource(strings = {" "}) 
     void testInvalidNameValidation(String invalidName) {
@@ -56,47 +56,71 @@ public class StockTest {
     @ParameterizedTest()
     @DisplayName("Constructor: Throws exception for NEGATIVE Price")
     @ValueSource(doubles = {-0.01, -100.0})
-    void testNegativePriceValidation(double negativePrice) {
+    void testNegativePriceConstructor(double negativePrice) {
         // Constructor test
         Throwable thrown = assertThrows(IllegalArgumentException.class, () -> {
             new Stock("TEST", "Name", negativePrice);
         });
     }
-    
 
-    // Equals Tests
-    @Test
-    @DisplayName("Equals test")
-    void testEqualsContractCompliance() {
-        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
-        Stock stock2 = new Stock("tsla", "Tesla Inc.", 350.0);
-        Stock stock3 = new Stock("GOOG", "Google", 1000.0);
-        Object nonStockObject = "Not a stock";
-
-        //Test self-reference (this == o)
-        assertTrue(stock1.equals(stock1), "Equals must be true for self-reference.");
-
-        //Test null and different type (covers internal if logic)
-        assertFalse(stock1.equals(null), "Equals must be false for null.");
-        assertFalse(stock1.equals(nonStockObject), "Equals must be false for different object type.");
-
-        //Test true equality (Core Logic: Symbols match)
-        assertTrue(stock1.equals(stock2), "Equals must be true for objects with the same symbol.");
-
-        //Test false equality (Core Logic: Symbols differ)
-        assertFalse(stock1.equals(stock3), "Equals must be false for objects with different symbols.");
+    @ParameterizedTest()
+    @DisplayName("SetPrice: Throws exception for NEGATIVE Price")
+    @ValueSource(doubles = {-0.01, -100.0})
+    void testNegativePriceSetter(double negativePrice) {
+        Stock stock = new Stock("TEST", "Name", 100.0);
+        Throwable thrown = assertThrows(IllegalArgumentException.class, () -> {
+            stock.setPrice(negativePrice);
+        });
     }
 
-    // HashCode Tests
+    // --- EQUALS TESTS ---    
     @Test
-    @DisplayName("HashCode Test")
-    void testHashCodeContractCompliance() {
+    @DisplayName("Should return true when comparing stock to itself")
+    void testEqualsSelfReference() {
+        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
+        assertTrue(stock1.equals(stock1));
+    }
+
+    @Test
+    @DisplayName("Should return false when comparing stock to null or wrong type")
+    void testEqualsNullAndType() {
+        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
+        Object nonStockObject = "Not a stock";
+
+        assertFalse(stock1.equals(null));
+        assertFalse(stock1.equals(nonStockObject));
+    }
+
+    @Test
+    @DisplayName("Should return true when Symbols match (case-insensitive due to constructor)")
+    void testEqualsTrueMatchingSymbols() {
+        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
+        Stock stock2 = new Stock("tsla", "Tesla Inc.", 350.0);
+        assertTrue(stock1.equals(stock2));
+    }
+
+    @Test
+    @DisplayName("Should return false when Symbols differ")
+    void testEqualsFalseDifferentSymbols() {
+        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
+        Stock stock3 = new Stock("GOOG", "Google", 1000.0);
+        assertFalse(stock1.equals(stock3));
+    }
+    
+    // --- HASHCODE TESTS ---
+    @Test
+    @DisplayName("Should return equal hashCodes for equal objects")
+    void testHashCodeConsistencyForEqualObjects() {
         Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
         Stock stock2 = new Stock("tsla", "Tesla Inc.", 350.0); 
-        Stock stock3 = new Stock("GOOG", "Google", 1000.0);
-
         assertEquals(stock1.hashCode(), stock2.hashCode());
-        
+    }
+
+    @Test
+    @DisplayName("Should return different hashCodes for unequal objects")
+    void testHashCodeInequalityForUnequalObjects() {
+        Stock stock1 = new Stock("TSLA", "Tesla Motors", 300.0);
+        Stock stock3 = new Stock("GOOG", "Google", 1000.0);
         assertNotEquals(stock1.hashCode(), stock3.hashCode());
     }
 }
