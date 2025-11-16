@@ -19,7 +19,6 @@ public class PortfolioTest {
         stockA = new Stock("AAPL", "Apple Inc.", 150.0);
         stockB = new Stock("GOOG", "Google LLC", 2000.0);
         stockC = new Stock("TSLA", "Tesla Inc.", 800.0);
-       
     }
 
     // --- Initialization ---
@@ -42,7 +41,36 @@ public class PortfolioTest {
     void testGetQuantityForNonHeldStock() {
         assertEquals(0, portfolio.getStockQuantity(stockC));
     }
+    
+    // --- Validation Tests ---
 
+    @Test
+    @DisplayName("Should throw exception when adding NULL stock")
+    void testAddNullStockThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.addStock(null, 5);
+        });
+    }
+
+    @Test
+    @DisplayName("Should throw exception when adding zero or negative quantity")
+    void testAddZeroOrNegativeQuantityThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.addStock(stockA, 0);
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.addStock(stockA, -1);
+        });
+    }
+
+    @Test
+    @DisplayName("Should throw exception when checking quantity of NULL stock")
+    void testGetQuantityForNullStockThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.getStockQuantity(null);
+        });
+    }
+    
     // --- Adding and Updating Stocks ---
     @Test
     @DisplayName("Should add stock and update holdings count")
@@ -77,8 +105,8 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should calculate total value correctly")
     void testCalculateTotalValue() {
-        portfolio.addStock(stockA, 2); 
-        portfolio.addStock(stockB, 1); 
+        portfolio.addStock(stockA, 2); // 2 * 150.0 = 300.0
+        portfolio.addStock(stockB, 1); // 1 * 2000.0 = 2000.0
         
         double expectedStockValue = 300.0 + 2000.0;
         double expectedTotalValue = 1000.0 + expectedStockValue; 
@@ -92,7 +120,8 @@ public class PortfolioTest {
     void testValueUpdateAfterPriceChange() {
         portfolio.addStock(stockA, 10);
         
-        stockA.setPrice(160.0);        
+        stockA.setPrice(160.0); // Price changes from 150.0 to 160.0
+        
         double expectedStockValue = 10 * 160.0;
         assertEquals(expectedStockValue, portfolio.calculateStockValue());
         assertEquals(1000.0 + expectedStockValue, portfolio.calculateTotalValue());
@@ -103,12 +132,14 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should throw exception when adding unique stock past capacity")
     void testPortfolioFullThrowsException() {
+        // Arrange: Fill 10 unique slots (MAX_HOLDINGS = 10)
         for (int i = 0; i < 10; i++) {
-            portfolio.addStock(new Stock("SYM" + i, "Comp" + i, 10.0), 1);
+            portfolio.addStock(new Stock("S" + i, "Comp" + i, 10.0), 1);
         }
         
         assertEquals(10, portfolio.getHoldingsCount());
 
+        // Act & Assert: Attempt to add 11th unique stock
         Stock stock11 = new Stock("S10", "Over Capacity", 5.0);
         
         assertThrows(IllegalStateException.class, () -> { portfolio.addStock(stock11, 1);});
@@ -116,18 +147,19 @@ public class PortfolioTest {
         assertEquals(10, portfolio.getHoldingsCount());
     }
     
+    
     @Test
     @DisplayName("Adding existing stock should succeed even when portfolio is full")
     void testAddExistingStockWhenPortfolioIsFull() {
-        // fill 9 stock possitions
+        // Arrange: Fill 9 stock positions
         for (int i = 0; i < 9; i++){
-            portfolio.addStock(new Stock("SYM" + i, "Comp" + i, 10.0), 1);
+            portfolio.addStock(new Stock("S" + i, "Comp" + i, 10.0), 1);
         }
-        portfolio.addStock(stockA, 1); //fill 10th possition
+        portfolio.addStock(stockA, 1); // fill 10th position
         
         assertEquals(10, portfolio.getHoldingsCount());
         
-        // add more quantity to a stock already in full porfolio
+        // Act & Assert: add more quantity to a stock already in full portfolio
         portfolio.addStock(stockA, 5); 
         
         assertEquals(6, portfolio.getStockQuantity(stockA));
