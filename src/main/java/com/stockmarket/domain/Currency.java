@@ -1,26 +1,25 @@
 package com.stockmarket.domain;
 
-
 public class Currency extends Asset {
-    private static final double SPREAD_RATE = 0.005; 
+    private static final double SPREAD_RATE = 0.005;
 
-    public Currency(String symbol, double marketPrice, int quantity) {
-        super(symbol, marketPrice, quantity);
+    public Currency(String symbol, double marketPrice) {
+        super(symbol, marketPrice);
     }
 
-   
     @Override
-    public double calculateRealValue() {
-        double nominalValue = super.marketPrice * super.quantity;
+    public double calculateRealValue(int quantity) {
+        double nominalValue = super.marketPrice * quantity;
         double totalSpreadCost = nominalValue * SPREAD_RATE;
         
         return nominalValue - totalSpreadCost;
     }
 
-   
     @Override
-    public double calculateInitialCost() {
-        return (super.marketPrice * super.quantity) * SPREAD_RATE;
+    public double calculateInitialCost(int quantity) {
+        // Initial cost is the spread applied to the full transaction value
+        double nominalValue = super.marketPrice * quantity;
+        return nominalValue * SPREAD_RATE;
     }
 
     @Override

@@ -1,23 +1,22 @@
 package com.stockmarket.domain;
 
-
 public class Commodity extends Asset {
-    private static final double STORAGE_COST_PER_UNIT = 0.50; 
-    public Commodity(String symbol, double marketPrice, int quantity) {
-        super(symbol, marketPrice, quantity);
+    private static final double STORAGE_COST_PER_UNIT = 0.50;
+
+    public Commodity(String symbol, double marketPrice) {
+        super(symbol, marketPrice);
     }
 
-    
     @Override
-    public double calculateRealValue() {
-        double nominalValue = super.marketPrice * super.quantity;
-        double totalStorageCost = super.quantity * STORAGE_COST_PER_UNIT;
+    public double calculateRealValue(int quantity) {
+        double nominalValue = super.marketPrice * quantity;
+        double totalStorageCost = quantity * STORAGE_COST_PER_UNIT;
         
         return nominalValue - totalStorageCost;
     }
 
     @Override
-    public double calculateInitialCost() {
+    public double calculateInitialCost(int quantity) {
         return 0.0;
     }
 
