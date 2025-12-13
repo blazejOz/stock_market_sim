@@ -1,5 +1,6 @@
 package com.stockmarket;
 
+import static org.junit.jupiter.api.Assertions.assertAll; // Dodane tylko to, co niezbędne
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,10 +31,12 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should initialize portfolio with correct cash and zero holdings")
     void testPortfolioInitialization() {
-        assertEquals(1000.0, portfolio.getCash());
-        assertEquals(0, portfolio.getHoldingsCount());
-        assertEquals(0.0, portfolio.calculateHoldingsValue());
-        assertEquals(1000.0, portfolio.calculateTotalValue());
+        assertAll(
+            () -> assertEquals(1000.0, portfolio.getCash()),
+            () -> assertEquals(0, portfolio.getHoldingsCount()),
+            () -> assertEquals(0.0, portfolio.calculateHoldingsValue()),
+            () -> assertEquals(1000.0, portfolio.calculateTotalValue())
+        );
     }
 
     @Test
@@ -47,8 +50,10 @@ public class PortfolioTest {
     @DisplayName("Should add asset and update holdings count")
     void testAddAsset() {
         portfolio.addAsset(share, 5);
-        assertEquals(1, portfolio.getHoldingsCount());
-        assertEquals(5, portfolio.getAssetQuantity(share));
+        assertAll(
+            () -> assertEquals(1, portfolio.getHoldingsCount()),
+            () -> assertEquals(5, portfolio.getAssetQuantity(share))
+        );
     }
 
     @Test
@@ -60,8 +65,10 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should throw exception when adding zero or negative quantity")
     void testAddZeroOrNegativeQuantityThrows() {
-        assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, 0));
-        assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, -5));
+        assertAll(
+            () -> assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, 0)),
+            () -> assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, -5))
+        );
     }
 
     @Test
@@ -69,8 +76,10 @@ public class PortfolioTest {
     void testAddExistingAsset() {
         portfolio.addAsset(share, 3);
         portfolio.addAsset(share, 2);
-        assertEquals(1, portfolio.getHoldingsCount());
-        assertEquals(5, portfolio.getAssetQuantity(share));
+        assertAll(
+            () -> assertEquals(1, portfolio.getHoldingsCount()),
+            () -> assertEquals(5, portfolio.getAssetQuantity(share))
+        );
     }
 
     @Test
@@ -80,10 +89,12 @@ public class PortfolioTest {
         portfolio.addAsset(commodity, 3);
         portfolio.addAsset(currency, 1);
         
-        assertEquals(3, portfolio.getHoldingsCount());
-        assertEquals(2, portfolio.getAssetQuantity(share));
-        assertEquals(3, portfolio.getAssetQuantity(commodity));
-        assertEquals(1, portfolio.getAssetQuantity(currency));
+        assertAll(
+            () -> assertEquals(3, portfolio.getHoldingsCount()),
+            () -> assertEquals(2, portfolio.getAssetQuantity(share)),
+            () -> assertEquals(3, portfolio.getAssetQuantity(commodity)),
+            () -> assertEquals(1, portfolio.getAssetQuantity(currency))
+        );
     }
 
     // --- Polymorphic Value Calculation Tests ---
@@ -99,9 +110,11 @@ public class PortfolioTest {
         double cValue = c.calculateRealValue(10); // 100*10 - 0.50*10 = 995
         double cuValue = cu.calculateRealValue(10); // 100*10 - (100*10)*0.005 = 995
 
-        assertEquals(1000.0, sValue);
-        assertEquals(995.0, cValue);
-        assertEquals(995.0, cuValue);
+        assertAll(
+            () -> assertEquals(1000.0, sValue),
+            () -> assertEquals(995.0, cValue),
+            () -> assertEquals(995.0, cuValue)
+        );
     }
 
     @Test
@@ -112,8 +125,10 @@ public class PortfolioTest {
         double realValue = smallShare.calculateRealValue(5);
         double initialCost = smallShare.calculateInitialCost(5);
         
-        assertEquals(5.0, initialCost); // Transaction fee of 5.0
-        assertEquals(495.0, realValue); // 500 - 5 = 495
+        assertAll(
+            () -> assertEquals(5.0, initialCost), // Transaction fee of 5.0
+            () -> assertEquals(495.0, realValue) // 500 - 5 = 495
+        );
     }
 
     @Test
@@ -126,9 +141,11 @@ public class PortfolioTest {
         double expectedCash = 1000.0 - 505.0 - 200.0; // 295
         double totalValue = portfolio.calculateTotalValue();
 
-        assertEquals(expectedCash, portfolio.getCash());
-        assertEquals(694.0, holdingsValue);
-        assertEquals(expectedCash + holdingsValue, totalValue);
+        assertAll(
+            () -> assertEquals(expectedCash, portfolio.getCash()),
+            () -> assertEquals(694.0, holdingsValue),
+            () -> assertEquals(expectedCash + holdingsValue, totalValue)
+        );
     }
 
     @Test
@@ -142,9 +159,11 @@ public class PortfolioTest {
         double remainingCash = 1000.0 - 305.0 - 200.0 - 100.5; // 394.5
         double totalValue = portfolio.calculateTotalValue();
 
-        assertEquals(remainingCash, portfolio.getCash());
-        assertEquals(593.5, holdingsValue);
-        assertEquals(remainingCash + holdingsValue, totalValue);
+        assertAll(
+            () -> assertEquals(remainingCash, portfolio.getCash()),
+            () -> assertEquals(593.5, holdingsValue),
+            () -> assertEquals(remainingCash + holdingsValue, totalValue)
+        );
     }
 
     // --- Purchase Validation Tests ---
@@ -194,8 +213,10 @@ public class PortfolioTest {
         // Try to increase quantity of first asset (should succeed)
         Share targetShare = new Share("S0", 1.0);
         portfolio.addAsset(targetShare, 5);
-        assertEquals(6, portfolio.getAssetQuantity(targetShare));
-        assertEquals(10, portfolio.getHoldingsCount());
+        assertAll(
+            () -> assertEquals(6, portfolio.getAssetQuantity(targetShare)),
+            () -> assertEquals(10, portfolio.getHoldingsCount())
+        );
     }
 
     // --- Edge Cases & Validation ---
