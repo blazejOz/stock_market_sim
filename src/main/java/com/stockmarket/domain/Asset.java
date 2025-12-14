@@ -32,7 +32,7 @@ public abstract class Asset {
         return marketPrice;
     }
 
-    public abstract double calculateRealValue(int quantity, int daysHeld);
+    public abstract double calculateRealValue(int quantity, long daysHeld);
 
     public abstract double calculateInitialCost(int quantity);
 
