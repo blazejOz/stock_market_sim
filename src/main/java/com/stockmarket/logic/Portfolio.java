@@ -1,5 +1,8 @@
 package com.stockmarket.logic;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
 import com.stockmarket.domain.Asset;
 
 public class Portfolio {
@@ -25,15 +28,16 @@ public class Portfolio {
     }
 
     private static class AssetHolding {
-        
         final Asset asset;
         int quantity;
+        final LocalDate purchaseDate;
 
         AssetHolding(Asset asset, int quantity) {
             if (asset == null) throw new IllegalArgumentException("Asset cannot be null.");
             if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive.");
             this.asset = asset;
             this.quantity = quantity;
+            this.purchaseDate = LocalDate.now();
         }
     }
 
@@ -72,9 +76,12 @@ public class Portfolio {
     // Audyt Portfela
     public double calculateHoldingsValue() {
         double total = 0.0;
+        LocalDate now = LocalDate.now();
+
         for (int i = 0; i < holdingsCount; i++) {
             AssetHolding h = holdings[i];
-            total += h.asset.calculateRealValue(h.quantity);
+            int daysHeld = (int)ChronoUnit.DAYS.between(h.purchaseDate, now);
+            total += h.asset.calculateRealValue(h.quantity, daysHeld);
         }
         return total;
     }
