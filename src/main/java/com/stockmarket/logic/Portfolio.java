@@ -80,7 +80,7 @@ public class Portfolio {
 
         for (int i = 0; i < holdingsCount; i++) {
             AssetHolding h = holdings[i];
-            int daysHeld = (int)ChronoUnit.DAYS.between(h.purchaseDate, now);
+            long daysHeld = ChronoUnit.DAYS.between(h.purchaseDate, now);
             total += h.asset.calculateRealValue(h.quantity, daysHeld);
         }
         return total;
