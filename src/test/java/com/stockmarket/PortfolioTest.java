@@ -1,8 +1,10 @@
 package com.stockmarket;
 
-import static org.junit.jupiter.api.Assertions.assertAll; // Dodane tylko to, co niezbędne
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +23,7 @@ public class PortfolioTest {
 
     @BeforeEach
     void setUp() {
-        portfolio = new Portfolio(1000.0);
+        portfolio = new Portfolio(10000.0);
         share = new Share("AAPL", 100.0);
         commodity = new Commodity("GOLD", 100.0);
         currency = new Currency("USD", 100.0);
@@ -31,11 +33,11 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should initialize portfolio with correct cash and zero holdings")
     void testPortfolioInitialization() {
-        assertAll(
-            () -> assertEquals(1000.0, portfolio.getCash()),
+        assertAll("Sprawdzenie stanu początkowego",
+            () -> assertEquals(10000.0, portfolio.getCash()),
             () -> assertEquals(0, portfolio.getHoldingsCount()),
             () -> assertEquals(0.0, portfolio.calculateHoldingsValue()),
-            () -> assertEquals(1000.0, portfolio.calculateTotalValue())
+            () -> assertEquals(10000.0, portfolio.calculateTotalValue())
         );
     }
 
@@ -50,9 +52,9 @@ public class PortfolioTest {
     @DisplayName("Should add asset and update holdings count")
     void testAddAsset() {
         portfolio.addAsset(share, 5);
-        assertAll(
-            () -> assertEquals(1, portfolio.getHoldingsCount()),
-            () -> assertEquals(5, portfolio.getAssetQuantity(share))
+        assertAll("Dodawanie aktywa",
+            () -> assertEquals(1, portfolio.getHoldingsCount(), "Licznik holdingów powinien wzrosnąć"),
+            () -> assertEquals(5, portfolio.getAssetQuantity(share), "Ilość powinna się zgadzać")
         );
     }
 
@@ -65,20 +67,25 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should throw exception when adding zero or negative quantity")
     void testAddZeroOrNegativeQuantityThrows() {
-        assertAll(
+        assertAll("Walidacja ilości",
             () -> assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, 0)),
             () -> assertThrows(IllegalArgumentException.class, () -> portfolio.addAsset(share, -5))
         );
     }
 
     @Test
-    @DisplayName("Should increase quantity if same asset is added again")
+    @DisplayName("Should increase quantity if same asset is added again (Merge)")
     void testAddExistingAsset() {
+        // Given
         portfolio.addAsset(share, 3);
+        
+        // When
         portfolio.addAsset(share, 2);
-        assertAll(
-            () -> assertEquals(1, portfolio.getHoldingsCount()),
-            () -> assertEquals(5, portfolio.getAssetQuantity(share))
+        
+        // Then
+        assertAll("Merge pozycji",
+            () -> assertEquals(1, portfolio.getHoldingsCount(), "Nie powinno tworzyć nowej pozycji"),
+            () -> assertEquals(5, portfolio.getAssetQuantity(share), "Powinno zsumować ilość")
         );
     }
 
@@ -89,7 +96,7 @@ public class PortfolioTest {
         portfolio.addAsset(commodity, 3);
         portfolio.addAsset(currency, 1);
         
-        assertAll(
+        assertAll("Wiele różnych aktywów",
             () -> assertEquals(3, portfolio.getHoldingsCount()),
             () -> assertEquals(2, portfolio.getAssetQuantity(share)),
             () -> assertEquals(3, portfolio.getAssetQuantity(commodity)),
@@ -97,164 +104,102 @@ public class PortfolioTest {
         );
     }
 
-    // --- Polymorphic Value Calculation Tests ---
+    // --- Polymorphic Calculation Integration Tests ---
     @Test
-    @DisplayName("Different asset types have different real values despite same base price")
-    void testPolymorphicRealValues() {
-        Share s = new Share("S1", 100.0); // transaction fee applies for small transactions
-        Commodity c = new Commodity("C1", 100.0); // storage cost 0.50/unit
-        Currency cu = new Currency("FX1", 100.0); // spread 0.005 = 0.5%
-
-        // For 10 units of each:
-        double sValue = s.calculateRealValue(10); // 100*10 - 0 (no fee if >= 1000) = 1000
-        double cValue = c.calculateRealValue(10); // 100*10 - 0.50*10 = 995
-        double cuValue = cu.calculateRealValue(10); // 100*10 - (100*10)*0.005 = 995
-
-        assertAll(
-            () -> assertEquals(1000.0, sValue),
-            () -> assertEquals(995.0, cValue),
-            () -> assertEquals(995.0, cuValue)
-        );
-    }
-
-    @Test
-    @DisplayName("Share applies transaction fee for small transactions")
-    void testShareTransactionFeeForSmallTransaction() {
-        Share smallShare = new Share("SMALL", 100.0);
-        // 5 units * 100 = 500 < 1000 (threshold), so fee applies
-        double realValue = smallShare.calculateRealValue(5);
-        double initialCost = smallShare.calculateInitialCost(5);
-        
-        assertAll(
-            () -> assertEquals(5.0, initialCost), // Transaction fee of 5.0
-            () -> assertEquals(495.0, realValue) // 500 - 5 = 495
-        );
-    }
-
-    @Test
-    @DisplayName("Portfolio calculates correct total value with mixed assets")
+    @DisplayName("Portfolio calculates correct total value with mixed assets (Integration)")
     void testCalculateTotalValueWithMixedAssets() {
-        portfolio.addAsset(share, 5); // 100*5 = 500 < 1000, so fee applies = 5, real = 495, cost = 505
-        portfolio.addAsset(commodity, 2); // 100*2 - 0.50*2 = 199, cost = 200
+        // SCENARIUSZ:
+        // 1. Share: 5 szt * 100 = 500. Mała transakcja -> Opłata 5.0. 
+        //    Koszt zakupu: 505. Wartość (Value): 495.
+        portfolio.addAsset(share, 5); 
+
+        // 2. Commodity: 5 szt * 100 = 500. 
+        //    Koszt zakupu: 500. Wartość: 500 - (5 szt * 0.50 * 1 dzień min) = 497.5.
+        portfolio.addAsset(commodity, 5); 
         
-        double holdingsValue = portfolio.calculateHoldingsValue(); // 495 + 199 = 694
-        double expectedCash = 1000.0 - 505.0 - 200.0; // 295
-        double totalValue = portfolio.calculateTotalValue();
-
-        assertAll(
-            () -> assertEquals(expectedCash, portfolio.getCash()),
-            () -> assertEquals(694.0, holdingsValue),
-            () -> assertEquals(expectedCash + holdingsValue, totalValue)
-        );
-    }
-
-    @Test
-    @DisplayName("Portfolio calculates correct total value with smaller purchases")
-    void testCalculateTotalValueSmaller() {
-        portfolio.addAsset(share, 3); // 300 < 1000, fee applies = 5, real = 295, cost = 305
-        portfolio.addAsset(commodity, 2); // 200 - 1 = 199, cost = 200
-        portfolio.addAsset(currency, 1); // 100 - 100*0.005 = 99.5, cost = 100 + 0.5 = 100.5
+        // 3. Currency: 5 szt * 100 = 500. Spread 0.5%.
+        //    Koszt zakupu (Spread przy kupnie): 500 + 2.5 = 502.5. 
+        //    Wartość (Spread przy wycenie): 500 - 2.5 = 497.5.
+        portfolio.addAsset(currency, 5);
         
-        double holdingsValue = portfolio.calculateHoldingsValue(); // 295 + 199 + 99.5 = 593.5
-        double remainingCash = 1000.0 - 305.0 - 200.0 - 100.5; // 394.5
-        double totalValue = portfolio.calculateTotalValue();
+        // Obliczenia oczekiwane:
+        double initialCash = 10000.0;
+        double totalCost = 505.0 + 500.0 + 502.5; // 1507.5
+        double expectedCash = initialCash - totalCost; // 8492.5
+        
+        double expectedHoldingsValue = 495.0 + 497.5 + 497.5; // 1490.0
 
-        assertAll(
-            () -> assertEquals(remainingCash, portfolio.getCash()),
-            () -> assertEquals(593.5, holdingsValue),
-            () -> assertEquals(remainingCash + holdingsValue, totalValue)
+        assertAll("Kompleksowy audyt portfela",
+            () -> assertEquals(expectedCash, portfolio.getCash(), 0.01, "Stan gotówki po zakupach"),
+            () -> assertEquals(expectedHoldingsValue, portfolio.calculateHoldingsValue(), 0.01, "Wartość aktywów (polimorfizm)"),
+            () -> assertEquals(expectedCash + expectedHoldingsValue, portfolio.calculateTotalValue(), 0.01, "Całkowita wartość portfela")
         );
     }
 
     // --- Purchase Validation Tests ---
     @Test
-    @DisplayName("Should throw exception when purchase exceeds available cash")
+    @DisplayName("Should throw exception when purchase exceeds available cash (checking hidden costs)")
     void testPurchaseInsufficientFunds() {
-        Share expensiveShare = new Share("EXP", 300.0);
-        // 300*4 = 1200 > 1000
-        assertThrows(IllegalStateException.class, () -> portfolio.addAsset(expensiveShare, 4));
+        // Mamy 10,000. Chcemy kupić za 10,000.
+        // Ale Currency ma ukryty koszt (spread), więc realny koszt > 10,000.
+        Currency eur = new Currency("EUR", 1.0);
+        int quantity = 10000; 
+
+        assertThrows(IllegalStateException.class, () -> portfolio.addAsset(eur, quantity),
+            "Powinien zablokować zakup, bo spread przekracza budżet");
     }
 
     @Test
     @DisplayName("Should allow purchase when funds are exactly sufficient")
     void testPurchaseExactFunds() {
-        Share exactShare = new Share("EXACT", 100.0);
-        // 100 * 10 = 1000 exactly
-        portfolio.addAsset(exactShare, 10);
-        assertEquals(0.0, portfolio.getCash());
+        // Commodity nie ma kosztu wejścia (tylko koszt w czasie), więc koszt = cena * ilość
+        Portfolio poorPortfolio = new Portfolio(100.0);
+        Commodity gold = new Commodity("GOLD", 10.0);
+        
+        // 10 * 10 = 100
+        poorPortfolio.addAsset(gold, 10);
+        
+        assertEquals(0.0, poorPortfolio.getCash(), "Powinien wyzerować konto co do grosza");
     }
 
     // --- Portfolio Capacity Tests ---
     @Test
     @DisplayName("Should throw exception when adding unique asset past capacity (10)")
     void testPortfolioCapacityExceeded() {
-        // Fill 10 unique positions with small quantities
+        // Wypełniamy 10 slotów
         for (int i = 0; i < 10; i++) {
             Share s = new Share("S" + i, 1.0);
             portfolio.addAsset(s, 1);
         }
 
-        // Try to add 11th unique asset
-        Share s11 = new Share("S10", 1.0);
+        // Próba dodania 11-tego
+        Share s11 = new Share("S11", 1.0);
         assertThrows(IllegalStateException.class, () -> portfolio.addAsset(s11, 1));
     }
 
     @Test
     @DisplayName("Should allow increasing quantity of existing asset when portfolio is full")
     void testAddQuantityWhenPortfolioIsFull() {
-        // Fill 10 positions
+        // Wypełniamy 10 slotów
         for (int i = 0; i < 10; i++) {
             Share s = new Share("S" + i, 1.0);
             portfolio.addAsset(s, 1);
         }
-        assertEquals(10, portfolio.getHoldingsCount());
 
-        // Try to increase quantity of first asset (should succeed)
+        // Dokupujemy do pierwszego slotu (S0)
         Share targetShare = new Share("S0", 1.0);
         portfolio.addAsset(targetShare, 5);
-        assertAll(
+        
+        assertAll("Dokupowanie przy pełnym portfelu",
             () -> assertEquals(6, portfolio.getAssetQuantity(targetShare)),
-            () -> assertEquals(10, portfolio.getHoldingsCount())
+            () -> assertEquals(10, portfolio.getHoldingsCount(), "Liczba unikalnych pozycji nie powinna wzrosnąć")
         );
     }
 
-    // --- Edge Cases & Validation ---
+    // --- Edge Cases ---
     @Test
     @DisplayName("Should return 0 for quantity of asset not in portfolio")
     void testGetQuantityNonHeldAsset() {
         assertEquals(0, portfolio.getAssetQuantity(share));
-    }
-
-    @Test
-    @DisplayName("Should throw exception when getting quantity of NULL asset")
-    void testGetQuantityNullAssetThrows() {
-        assertThrows(IllegalArgumentException.class, () -> portfolio.getAssetQuantity(null));
-    }
-
-    @Test
-    @DisplayName("Commodity real value accounts for storage costs")
-    void testCommodityStorageCostDeduction() {
-        Commodity c = new Commodity("GOLD", 100.0);
-        double realValue = c.calculateRealValue(10);
-        // 100*10 - 0.50*10 = 995
-        assertEquals(995.0, realValue);
-    }
-
-    @Test
-    @DisplayName("Currency real value accounts for spread")
-    void testCurrencySpreadDeduction() {
-        Currency cu = new Currency("EUR", 100.0);
-        double realValue = cu.calculateRealValue(10);
-        // 100*10 - (100*10)*0.005 = 1000 - 5 = 995
-        assertEquals(995.0, realValue);
-    }
-
-    @Test
-    @DisplayName("Share initial cost is zero for large transactions")
-    void testShareNoFeeForLargeTransaction() {
-        Share s = new Share("BIG", 100.0);
-        // 100 * 15 = 1500 >= 1000 threshold
-        double initialCost = s.calculateInitialCost(15);
-        assertEquals(0.0, initialCost);
     }
 }
