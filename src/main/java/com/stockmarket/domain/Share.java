@@ -9,7 +9,7 @@ public class Share extends Asset {
     }
 
     @Override
-    public double calculateRealValue(int quantity) {
+    public double calculateRealValue(int quantity, int daysHeld) {
         double nominalValue = super.marketPrice * quantity;
        
         return nominalValue - calculateInitialCost(quantity);

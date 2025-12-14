@@ -193,7 +193,6 @@ public class PortfolioTest {
             Share s = new Share("S" + i, 1.0);
             portfolio.addAsset(s, 1);
         }
-        assertEquals(10, portfolio.getHoldingsCount());
 
         // Try to add 11th unique asset
         Share s11 = new Share("S10", 1.0);

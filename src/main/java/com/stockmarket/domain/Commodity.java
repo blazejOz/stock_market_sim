@@ -8,7 +8,7 @@ public class Commodity extends Asset {
     }
 
     @Override
-    public double calculateRealValue(int quantity) {
+    public double calculateRealValue(int quantity, int daysHeld) {
         double nominalValue = super.marketPrice * quantity;
         double totalStorageCost = quantity * STORAGE_COST_PER_UNIT;
         

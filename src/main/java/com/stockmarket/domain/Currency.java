@@ -8,7 +8,7 @@ public class Currency extends Asset {
     }
 
     @Override
-    public double calculateRealValue(int quantity) {
+    public double calculateRealValue(int quantity, int daysHeld) {
         double nominalValue = super.marketPrice * quantity;
         double totalSpreadCost = nominalValue * SPREAD_RATE;
         
