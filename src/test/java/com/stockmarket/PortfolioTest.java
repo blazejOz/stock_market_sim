@@ -40,6 +40,15 @@ public class PortfolioTest {
         );
     }
 
+    @Test
+    @DisplayName("Constructor should throw exception when initial cash is negative")
+    void testPortfolioConstructorWithNegativeCash() {
+        // Sprawdzamy czy rzucany jest wyjątek IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            new Portfolio(-100.0);
+        });
+    }
+
     // --- Adding Assets Tests ---
     @Test
     @DisplayName("Should add asset and update holdings count")
@@ -81,6 +90,15 @@ public class PortfolioTest {
             () -> assertTrue(portfolio.getCash() > 10000.0, "Cash should increase after sale")
         );
     }
+    
+        @Test
+    @DisplayName("Constructor should throw exception when selling val is negative")
+    void testSellAssetNegativeValue() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.sellAsset("APPL", -100, 100);
+        });
+    }
+
 
     // --- Polymorphism Tests ---
     @Test
@@ -131,6 +149,49 @@ public class PortfolioTest {
             () -> assertTrue(report.contains("USD")),  
             () -> assertTrue(report.contains("SHARE")), 
             () -> assertTrue(report.contains("CURRENCY")) 
+        );
+    }
+
+        @Test
+    @DisplayName("Should generate sorted report correctly (Comparator logic check)")
+    void testGenerateReportSorting() {
+        // Przygotowanie danych do sortowania
+        // Kolejność typów w Enum: SHARE, COMMODITY, CURRENCY
+        
+        // SHARE (wartość 5000) - powinien być pierwszy
+        Share expensiveShare = new Share("SHR_HIGH", 500.0);
+        portfolio.addAsset(expensiveShare, 1); 
+
+        // SHARE (wartość 1000) - powinien być drugi
+        Share cheapShare = new Share("SHR_LOW", 100.0);
+        portfolio.addAsset(cheapShare, 1);
+
+        // COMMODITY (wartość 2000) - powinien być trzeci
+        Commodity gold = new Commodity("GOLD", 200.0);
+        portfolio.addAsset(gold, 1);
+
+        // CURRENCY (wartość 10000) - powinien być ostatni (mimo najwyższej wartości, bo typ ma priorytet)
+        Currency usd = new Currency("USD", 100.0);
+        portfolio.addAsset(usd, 10);
+
+        String report = portfolio.generateReport();
+        
+        // Sprawdzenie kolejności występowania w raporcie
+        // Szukamy indeksów (pozycji) symboli w wygenerowanym stringu
+        int idxHighShare = report.indexOf("SHR_HIGH");
+        int idxLowShare = report.indexOf("SHR_LOW");
+        int idxGold = report.indexOf("GOLD");
+        int idxUsd = report.indexOf("USD");
+
+        assertAll("Report Sorting Order",
+            // 1. Sprawdzenie sortowania wewnątrz grupy SHARE (po wartości malejąco)
+            () -> assertTrue(idxHighShare < idxLowShare, "High value share should appear before low value share"),
+            
+            // 2. Sprawdzenie sortowania typów (SHARE przed COMMODITY)
+            () -> assertTrue(idxLowShare < idxGold, "Shares should appear before Commodities"),
+            
+            // 3. Sprawdzenie sortowania typów (COMMODITY przed CURRENCY)
+            () -> assertTrue(idxGold < idxUsd, "Commodities should appear before Currencies")
         );
     }
 }
