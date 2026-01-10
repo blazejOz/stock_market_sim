@@ -1,24 +1,21 @@
 package com.stockmarket.logic;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Comparator;
 
 import com.stockmarket.domain.Asset;
-import com.stockmarket.domain.PurchaseLot;
 import com.stockmarket.domain.AssetType;
+import com.stockmarket.domain.PurchaseLot;
 
 public class Portfolio {
 
     private double cash;
     private int currentDay;
-
-    // UPROSZCZENIE: Tylko jedna mapa.
-    // Kluczem jest symbol (np. "AAPL"), wartością jest obiekt trzymający wszystko co wiemy o tym aktywie.
-    private final Map<String, AssetEntry> holdings;
+    private Map<String, AssetEntry> holdings; 
 
     public Portfolio(double initialCash) {
         if (initialCash < 0) {
@@ -33,8 +30,6 @@ public class Portfolio {
         if (days > 0) this.currentDay += days;
     }
 
-    // --- Metody pomocnicze dla I/O (Persystencja) - BRAKUJĄCE ELEMENTY ---
-
     public void setCash(double cash) { 
         this.cash = cash; 
     }
@@ -47,7 +42,7 @@ public class Portfolio {
         return this.currentDay; 
     }
 
-    // Metoda do wczytywania partii z pliku (odtwarzanie historii)
+    //Load asset from file
     public void loadAsset(Asset asset, int quantity, int purchaseDay) {
         String symbol = asset.getSymbol();
         
@@ -56,12 +51,10 @@ public class Portfolio {
         }
         
         AssetEntry entry = holdings.get(symbol);
-        // Cena w obiekcie asset (z pliku) jest ceną historyczną zakupu tej partii
         entry.addLot(purchaseDay, asset.getMarketPrice(), quantity);
     }
 
-    // Metoda generująca dane do zapisu (zrzut wszystkich partii)
-    // Format: TYPE|SYMBOL|PRICE|QTY|PURCHASE_DAY
+    //Generete formated data from holdings to save to file
     public String[] getHoldingsData() {
         List<String> dataList = new ArrayList<>();
         
@@ -70,8 +63,8 @@ public class Portfolio {
             for (PurchaseLot lot : entry.lots) {
                 if (lot.getQuantity() > 0) {
                     dataList.add(String.format(Locale.US, "%s|%s|%.2f|%d|%d",
-                            entry.assetDefinition.getType(),
-                            entry.assetDefinition.getSymbol(),
+                            entry.asset.getType(),
+                            entry.asset.getSymbol(),
                             lot.getUnitPrice(),
                             lot.getQuantity(),
                             lot.getPurchaseDate()
@@ -81,16 +74,13 @@ public class Portfolio {
         }
         return dataList.toArray(new String[0]);
     }
-    // --------------------------------------------------------------------
-
-    // --- Klasa Wewnętrzna: Agreguje wiedzę o jednym aktywie ---
-    // Trzyma zarówno definicję (cenę/typ) jak i historię zakupów (partie).
+    
     private static class AssetEntry {
-        Asset assetDefinition; // Potrzebne do logiki wyceny (polimorfizm)
-        List<PurchaseLot> lots; // Historia zakupów (FIFO)
+        Asset asset; 
+        List<PurchaseLot> lots; // purchase history
 
         AssetEntry(Asset asset) {
-            this.assetDefinition = asset;
+            this.asset = asset;
             this.lots = new ArrayList<>();
         }
 
@@ -99,33 +89,28 @@ public class Portfolio {
         }
 
         // IMPLEMENTACJA FIFO (First-In, First-Out)
-        // Zwraca zysk (Profit/Loss) z transakcji
         double processSale(int quantityToSell, double currentMarketPrice) {
             int remainingToSell = quantityToSell;
             double totalCostBase = 0.0; // Koszt zakupu sprzedawanych partii
             List<PurchaseLot> emptyLots = new ArrayList<>();
 
-            // Iteracja po partiach od najstarszej (indeks 0)
             for (PurchaseLot lot : lots) {
                 if (remainingToSell == 0) break;
 
-                // Ile możemy wziąć z tej partii?
                 int quantityFromLot = Math.min(remainingToSell, lot.getQuantity());
-
-                // Obliczamy koszt zakupu tej części (Cena zakupu partii * ilość)
                 totalCostBase += quantityFromLot * lot.getUnitPrice();
-
-                // Aktualizujemy partię i licznik
+                
+                //Update quantity
                 lot.decreaseQuantity(quantityFromLot);
                 remainingToSell -= quantityFromLot;
 
-                // Jeśli partia jest pusta, oznaczamy do usunięcia
+                //If quantity 0 - add to be removed
                 if (lot.getQuantity() == 0) {
                     emptyLots.add(lot);
                 }
             }
 
-            // Usuwamy zużyte partie (Sprzątanie)
+            // Usuwamy zużyte partie 
             lots.removeAll(emptyLots);
 
             // Obliczenie wyniku finansowego
@@ -135,12 +120,11 @@ public class Portfolio {
 
         double calculateValue(int currentDay) {
             double value = 0.0;
-            // Prosta pętla po partiach - to tutaj dzieje się magia wyceny
+            
             for (PurchaseLot lot : lots) {
                 if (lot.getQuantity() > 0) {
                     int daysHeld = currentDay - (int) lot.getPurchaseDate();
-                    // Asset sam liczy wartość dla danej ilości i czasu
-                    value += assetDefinition.calculateRealValue(lot.getQuantity(), daysHeld);
+                    value += asset.calculateRealValue(lot.getQuantity(), daysHeld);
                 }
             }
             return value;
@@ -154,8 +138,9 @@ public class Portfolio {
             return total;
         }
     }
-    // ----------------------------------------------------------
 
+
+//// ADD
     public void addAsset(Asset asset, int quantity) {
         if (asset == null) throw new IllegalArgumentException("Asset cannot be null.");
         if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive.");
@@ -182,7 +167,7 @@ public class Portfolio {
         // Pobieramy wpis i zlecamy mu dodanie partii.
         // Aktualizujemy też definicję aktywa (np. nowa cena rynkowa).
         AssetEntry entry = holdings.get(symbol);
-        entry.assetDefinition = asset; 
+        entry.asset = asset; 
         entry.addLot(this.currentDay, asset.getMarketPrice(), quantity);
     }
 
@@ -218,7 +203,6 @@ public class Portfolio {
 
     public double calculateHoldingsValue() {
         double totalValue = 0.0;
-        // Iteracja jest teraz czystsza - delegujemy wycenę do AssetEntry
         for (AssetEntry entry : holdings.values()) {
             totalValue += entry.calculateValue(this.currentDay);
         }
@@ -238,21 +222,16 @@ public class Portfolio {
         return entry != null ? entry.getTotalQuantity() : 0;
     }
 
-    ///
-    ///
-     // RAPORTOWANIE
+    // RAPORTOWANIE
     public String generateReport() {
-        // 1. Konwersja Mapy na Listę w celu posortowania
         List<AssetEntry> entries = new ArrayList<>(holdings.values());
 
-        // 2. Sortowanie z własnym Comparatorem (bez Stream API)
-        // Klucz sortowania: Typ Aktywa -> Wartość Rynkowa (malejąco)
         entries.sort(new Comparator<AssetEntry>() {
             @Override
             public int compare(AssetEntry e1, AssetEntry e2) {
                 // Po pierwsze: Sortowanie po typie (kolejność Enum: SHARE, COMMODITY, CURRENCY)
-                AssetType type1 = e1.assetDefinition.getType();
-                AssetType type2 = e2.assetDefinition.getType();
+                AssetType type1 = e1.asset.getType();
+                AssetType type2 = e2.asset.getType();
                 int typeComparison = type1.compareTo(type2);
                 
                 if (typeComparison != 0) {
@@ -262,12 +241,11 @@ public class Portfolio {
                 // Po drugie: Sortowanie po wartości (malejąco)
                 double val1 = e1.calculateValue(currentDay);
                 double val2 = e2.calculateValue(currentDay);
-                // compare(val2, val1) daje sortowanie malejące
                 return Double.compare(val2, val1);
             }
         });
 
-        // 3. Budowanie Stringa (Raport tekstowy)
+
         StringBuilder report = new StringBuilder();
         report.append(String.format("PORTFOLIO REPORT (Day %d)\n", currentDay));
         report.append("--------------------------------------------------\n");
@@ -276,11 +254,10 @@ public class Portfolio {
 
         for (AssetEntry entry : entries) {
             double value = entry.calculateValue(currentDay);
-            // Pomijamy puste wpisy
             if (entry.getTotalQuantity() > 0) {
                 report.append(String.format("%-10s | %-10s | %-10d | %.2f\n",
-                        entry.assetDefinition.getType(),
-                        entry.assetDefinition.getSymbol(),
+                        entry.asset.getType(),
+                        entry.asset.getSymbol(),
                         entry.getTotalQuantity(),
                         value
                 ));

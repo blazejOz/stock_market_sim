@@ -91,7 +91,7 @@ public class PortfolioTest {
         );
     }
     
-        @Test
+    @Test
     @DisplayName("Constructor should throw exception when selling val is negative")
     void testSellAssetNegativeValue() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
