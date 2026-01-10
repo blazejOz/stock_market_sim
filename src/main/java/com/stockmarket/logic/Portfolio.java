@@ -1,14 +1,15 @@
 package com.stockmarket.logic;
 
-import com.stockmarket.domain.Asset;
-import com.stockmarket.domain.AssetType;
-import com.stockmarket.domain.PurchaseLot;
-
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Comparator;
+
+import com.stockmarket.domain.Asset;
+import com.stockmarket.domain.PurchaseLot;
+import com.stockmarket.domain.AssetType;
 
 public class Portfolio {
 
@@ -32,6 +33,56 @@ public class Portfolio {
         if (days > 0) this.currentDay += days;
     }
 
+    // --- Metody pomocnicze dla I/O (Persystencja) - BRAKUJĄCE ELEMENTY ---
+
+    public void setCash(double cash) { 
+        this.cash = cash; 
+    }
+
+    public void setCurrentDay(int day) { 
+        this.currentDay = day; 
+    }
+
+    public int getCurrentDay() { 
+        return this.currentDay; 
+    }
+
+    // Metoda do wczytywania partii z pliku (odtwarzanie historii)
+    public void loadAsset(Asset asset, int quantity, int purchaseDay) {
+        String symbol = asset.getSymbol();
+        
+        if (!holdings.containsKey(symbol)) {
+            holdings.put(symbol, new AssetEntry(asset));
+        }
+        
+        AssetEntry entry = holdings.get(symbol);
+        // Cena w obiekcie asset (z pliku) jest ceną historyczną zakupu tej partii
+        entry.addLot(purchaseDay, asset.getMarketPrice(), quantity);
+    }
+
+    // Metoda generująca dane do zapisu (zrzut wszystkich partii)
+    // Format: TYPE|SYMBOL|PRICE|QTY|PURCHASE_DAY
+    public String[] getHoldingsData() {
+        List<String> dataList = new ArrayList<>();
+        
+        for (AssetEntry entry : holdings.values()) {
+            // Iterujemy po wszystkich partiach danego aktywa
+            for (PurchaseLot lot : entry.lots) {
+                if (lot.getQuantity() > 0) {
+                    dataList.add(String.format(Locale.US, "%s|%s|%.2f|%d|%d",
+                            entry.assetDefinition.getType(),
+                            entry.assetDefinition.getSymbol(),
+                            lot.getUnitPrice(),
+                            lot.getQuantity(),
+                            lot.getPurchaseDate()
+                    ));
+                }
+            }
+        }
+        return dataList.toArray(new String[0]);
+    }
+    // --------------------------------------------------------------------
+
     // --- Klasa Wewnętrzna: Agreguje wiedzę o jednym aktywie ---
     // Trzyma zarówno definicję (cenę/typ) jak i historię zakupów (partie).
     private static class AssetEntry {
@@ -43,7 +94,7 @@ public class Portfolio {
             this.lots = new ArrayList<>();
         }
 
-        void addLot(int purchaseDay, double price, int quantity) {
+        void addLot(long purchaseDay, double price, int quantity) {
             lots.add(new PurchaseLot(purchaseDay, price, quantity));
         }
 
@@ -178,8 +229,18 @@ public class Portfolio {
         return this.cash + calculateHoldingsValue();
     }
 
+    public double getCash() { return this.cash; }
+    public int getHoldingsCount() { return holdings.size(); }
 
-    // RAPORTOWANIE
+    public int getAssetQuantity(Asset asset) {
+        if (asset == null) return 0;
+        AssetEntry entry = holdings.get(asset.getSymbol());
+        return entry != null ? entry.getTotalQuantity() : 0;
+    }
+
+    ///
+    ///
+     // RAPORTOWANIE
     public String generateReport() {
         // 1. Konwersja Mapy na Listę w celu posortowania
         List<AssetEntry> entries = new ArrayList<>(holdings.values());
@@ -230,14 +291,5 @@ public class Portfolio {
         report.append(String.format("TOTAL NET WORTH: %.2f\n", calculateTotalValue()));
 
         return report.toString();
-    }
-
-    public double getCash() { return this.cash; }
-    public int getHoldingsCount() { return holdings.size(); }
-
-    public int getAssetQuantity(Asset asset) {
-        if (asset == null) return 0;
-        AssetEntry entry = holdings.get(asset.getSymbol());
-        return entry != null ? entry.getTotalQuantity() : 0;
     }
 }

@@ -89,49 +89,11 @@ public class PortfolioTest {
         Share s = new Share("S1", 100.0);
         Commodity c = new Commodity("C1", 100.0);
         Currency cu = new Currency("FX1", 100.0);
-
-        // Passing daysHeld = 0 for standard check
-        // Share: 1000.0 (No fee for >= 1000)
-        // Commodity: 1000.0 (No storage cost for 0 days)
-        // Currency: 990.0 (1000 - 1% spread of 10.0) -> Wait, Currency spread is 0.01 (1%). 
-        // 100 * 10 = 1000. 1000 * 0.01 = 10. Real Value = 990.
-        
-        // Let's simulate time for Commodity to prove polymorphism
-        // Commodity cost is 0.10 per unit per day.
-        // 10 units * 0.10 * 10 days = 10.0 cost. Value = 990.0
-        
-        // AKTUALIZACJA OCZEKIWANYCH WARTOŚCI NA PODSTAWIE BŁĘDÓW:
-        // Commodity: Oczekiwał 990.0, dostał 950.0. (Koszt 50.0 -> 0.50/dzień)
-        // Currency: Oczekiwał 990.0, dostał 995.0. (Koszt 5.0 -> 0.5% spread)
         
         assertAll("Polymorphic Calculation",
-            () -> assertEquals(1000.0, s.calculateRealValue(10, 10), 0.01), // Share ignores time
-            () -> assertEquals(950.0, c.calculateRealValue(10, 10), 0.01),  // Commodity uses time (Adjusted to 950.0 based on actual output)
-            () -> assertEquals(995.0, cu.calculateRealValue(10, 10), 0.01)  // Currency uses spread (Adjusted to 995.0 based on actual output)
-        );
-    }
-
-    // --- Report Tests ---
-    @Test
-    @DisplayName("Should generate report containing key information")
-    void testGenerateReport() {
-        // Use a dedicated larger portfolio for this test if needed, or stick to limits
-        Portfolio reportPortfolio = new Portfolio(20000.0);
-        
-        Share s = new Share("AAPL", 100.0);
-        Currency c = new Currency("USD", 100.0);
-
-        reportPortfolio.addAsset(s, 10);   // Cost ~1000
-        reportPortfolio.addAsset(c, 50);   // Cost ~5000 + spread
-        
-        String report = reportPortfolio.generateReport();
-        
-        assertAll("Report Content",
-            () -> assertTrue(report.contains("PORTFOLIO REPORT")),
-            () -> assertTrue(report.contains("AAPL")), 
-            () -> assertTrue(report.contains("USD")),  
-            () -> assertTrue(report.contains("SHARE")), 
-            () -> assertTrue(report.contains("CURRENCY")) 
+            () -> assertEquals(1000.0, s.calculateRealValue(10, 10), 0.01), 
+            () -> assertEquals(950.0, c.calculateRealValue(10, 10), 0.01),  
+            () -> assertEquals(995.0, cu.calculateRealValue(10, 10), 0.01)  
         );
     }
 
@@ -147,5 +109,28 @@ public class PortfolioTest {
     void testSellMoreThanOwned() {
         portfolio.addAsset(share, 5);
         assertThrows(IllegalStateException.class, () -> portfolio.sellAsset("AAPL", 10, 100.0));
+    }
+
+     // --- Report Tests ---
+    @Test
+    @DisplayName("Should generate report containing key information")
+    void testGenerateReport() {
+        Portfolio reportPortfolio = new Portfolio(20000.0);
+        
+        Share s = new Share("AAPL", 100.0);
+        Currency c = new Currency("USD", 100.0);
+
+        reportPortfolio.addAsset(s, 10);   
+        reportPortfolio.addAsset(c, 50);  
+        
+        String report = reportPortfolio.generateReport();
+        
+        assertAll("Report Content",
+            () -> assertTrue(report.contains("PORTFOLIO REPORT")),
+            () -> assertTrue(report.contains("AAPL")), 
+            () -> assertTrue(report.contains("USD")),  
+            () -> assertTrue(report.contains("SHARE")), 
+            () -> assertTrue(report.contains("CURRENCY")) 
+        );
     }
 }
