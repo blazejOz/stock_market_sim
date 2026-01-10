@@ -38,4 +38,10 @@ public class Share extends Asset {
     public int hashCode() {
         return super.symbol.hashCode();
     }
+
+    @Override
+    public AssetType getType() {
+        return AssetType.SHARE;
+    }
+
 }
