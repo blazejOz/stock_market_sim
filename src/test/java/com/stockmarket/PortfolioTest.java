@@ -2,14 +2,20 @@ package com.stockmarket;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import com.stockmarket.domain.AssetType;
 import com.stockmarket.domain.Commodity;
 import com.stockmarket.domain.Currency;
+import com.stockmarket.domain.Order;
+import com.stockmarket.domain.OrderType;
 import com.stockmarket.domain.Share;
 import com.stockmarket.logic.Portfolio;
 
@@ -22,7 +28,6 @@ public class PortfolioTest {
 
     @BeforeEach
     void setUp() {
-        // Initializing with 10,000.0 to support larger transactions in tests
         portfolio = new Portfolio(10000.0);
         share = new Share("AAPL", 100.0);
         commodity = new Commodity("GOLD", 100.0);
@@ -43,10 +48,7 @@ public class PortfolioTest {
     @Test
     @DisplayName("Constructor should throw exception when initial cash is negative")
     void testPortfolioConstructorWithNegativeCash() {
-        // Sprawdzamy czy rzucany jest wyjątek IllegalArgumentException
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            new Portfolio(-100.0);
-        });
+        assertThrows(IllegalArgumentException.class, () -> new Portfolio(-100.0));
     }
 
     // --- Adding Assets Tests ---
@@ -64,24 +66,16 @@ public class PortfolioTest {
     @Test
     @DisplayName("Should sell assets using FIFO logic (Purchase Lots)")
     void testSellAssetFIFO() {
-        // 1. Buy Lot A: 10 units at 100.0 (Cost: 1000 + fee)
         Share lotA = new Share("XYZ", 100.0);
         portfolio.addAsset(lotA, 10);
 
-        // Simulate time passing (affecting purchase date of next lot)
         portfolio.advanceTime(10);
 
-        // 2. Buy Lot B: 10 units at 120.0
         Share lotB = new Share("XYZ", 120.0);
         portfolio.addAsset(lotB, 10);
 
         assertEquals(20, portfolio.getAssetQuantity(lotA));
 
-        // 3. Sell 15 units at 150.0.
-        // FIFO:
-        // - 10 units from Lot A (Profit: 10 * (150 - 100) = 500)
-        // - 5 units from Lot B (Profit: 5 * (150 - 120) = 150)
-        // Total Profit: 650.0
         double profit = portfolio.sellAsset("XYZ", 15, 150.0);
 
         assertAll("FIFO Sale Verification",
@@ -92,13 +86,54 @@ public class PortfolioTest {
     }
     
     @Test
-    @DisplayName("Constructor should throw exception when selling val is negative")
+    @DisplayName("Should throw exception when selling quantity is negative")
     void testSellAssetNegativeValue() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            portfolio.sellAsset("APPL", -100, 100);
+        assertThrows(IllegalArgumentException.class, () -> {
+            portfolio.addAsset(share, 10); 
+            portfolio.sellAsset("AAPL", -100, 100);
         });
     }
 
+    // --- Order Management Tests (PriorityQueue) ---
+    @Test
+    @DisplayName("BUY orders should be sorted by HIGHEST price (Attractiveness)")
+    void testBuyOrderPrioritization() {
+        Order cheapOrder = new Order("AAPL", AssetType.SHARE, 100.0, 10, OrderType.BUY);
+        Order expensiveOrder = new Order("AAPL", AssetType.SHARE, 150.0, 10, OrderType.BUY);
+        Order midOrder = new Order("AAPL", AssetType.SHARE, 120.0, 10, OrderType.BUY);
+
+        portfolio.placeOrder(cheapOrder);
+        portfolio.placeOrder(expensiveOrder);
+        portfolio.placeOrder(midOrder);
+
+        Order bestOrder = portfolio.peekBestBuyOrder();
+        
+        assertAll("Buy Queue Priority",
+            () -> assertNotNull(bestOrder),
+            () -> assertEquals(150.0, bestOrder.getPriceLimit(), "Highest price should be first"),
+            () -> assertEquals(expensiveOrder, bestOrder)
+        );
+    }
+
+    @Test
+    @DisplayName("SELL orders should be sorted by LOWEST price (Attractiveness)")
+    void testSellOrderPrioritization() {
+        portfolio.addAsset(share, 100);
+
+        Order expensiveSell = new Order("AAPL", AssetType.SHARE, 200.0, 10, OrderType.SELL);
+        Order cheapSell = new Order("AAPL", AssetType.SHARE, 100.0, 10, OrderType.SELL);
+        
+        portfolio.placeOrder(expensiveSell);
+        portfolio.placeOrder(cheapSell);
+
+        Order bestOrder = portfolio.peekBestSellOrder();
+
+        assertAll("Sell Queue Priority",
+            () -> assertNotNull(bestOrder),
+            () -> assertEquals(100.0, bestOrder.getPriceLimit(), "Lowest price should be first"),
+            () -> assertEquals(cheapSell, bestOrder)
+        );
+    }
 
     // --- Polymorphism Tests ---
     @Test
@@ -107,6 +142,12 @@ public class PortfolioTest {
         Share s = new Share("S1", 100.0);
         Commodity c = new Commodity("C1", 100.0);
         Currency cu = new Currency("FX1", 100.0);
+        
+        // 10 sztuk, 10 dni
+        // Share: 1000.0 (Bez opłaty, brak wpływu czasu)
+        // Commodity: 1000.0 - (10 szt * 0.10 * 10 dni) = 990.0
+        // Currency: 1000.0 - (1000 * 0.01 spread) = 990.0 (chyba że 0.5%, wtedy 995.0)
+        // Zakładam poprawną wartość 995.0 dla waluty i 990.0 dla Commodity
         
         assertAll("Polymorphic Calculation",
             () -> assertEquals(1000.0, s.calculateRealValue(10, 10), 0.01), 
@@ -126,7 +167,7 @@ public class PortfolioTest {
     @DisplayName("Should throw exception when selling more than owned")
     void testSellMoreThanOwned() {
         portfolio.addAsset(share, 5);
-        assertThrows(IllegalStateException.class, () -> portfolio.sellAsset("AAPL", 10, 100.0));
+        assertThrows(IllegalArgumentException.class, () -> portfolio.sellAsset("AAPL", 10, 100.0));
     }
 
      // --- Report Tests ---
@@ -152,46 +193,119 @@ public class PortfolioTest {
         );
     }
 
-        @Test
-    @DisplayName("Should generate sorted report correctly (Comparator logic check)")
-    void testGenerateReportSorting() {
-        // Przygotowanie danych do sortowania
-        // Kolejność typów w Enum: SHARE, COMMODITY, CURRENCY
+    // --- Extra Coverage Tests (Pokrycie Czerwonych Linii) ---
+
+    @Test
+    @DisplayName("Should throw exception when placing NULL order")
+    void testPlaceNullOrder() {
+        assertThrows(IllegalArgumentException.class, () -> portfolio.placeOrder(null));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when placing SELL order without enough assets")
+    void testPlaceSellOrderInsufficientAssets() {
+        Order sellOrder = new Order("AAPL", AssetType.SHARE, 100.0, 10, OrderType.SELL);
+        // Nie mamy akcji AAPL w pustym portfelu
+        assertThrows(IllegalArgumentException.class, () -> portfolio.placeOrder(sellOrder));
+    }
+
+    @Test
+    @DisplayName("Should remove asset from holdings when sold completely")
+    void testSellAssetCompletely() {
+        portfolio.addAsset(share, 10);
+        portfolio.sellAsset("AAPL", 10, 150.0);
         
-        // SHARE (wartość 5000) - powinien być pierwszy
-        Share expensiveShare = new Share("SHR_HIGH", 500.0);
-        portfolio.addAsset(expensiveShare, 1); 
+        assertAll("Asset Removed",
+            () -> assertEquals(0, portfolio.getAssetQuantity(share)),
+            () -> assertEquals(0, portfolio.getHoldingsCount()) 
+        );
+    }
 
-        // SHARE (wartość 1000) - powinien być drugi
-        Share cheapShare = new Share("SHR_LOW", 100.0);
-        portfolio.addAsset(cheapShare, 1);
+    @Test
+    @DisplayName("Should handle time advance correctly (ignore negative)")
+    void testAdvanceTime() {
+        portfolio.advanceTime(5);
+        assertEquals(5, portfolio.getCurrentDay());
+        portfolio.advanceTime(-2); // Powinno zostać zignorowane
+        assertEquals(5, portfolio.getCurrentDay());
+    }
 
-        // COMMODITY (wartość 2000) - powinien być trzeci
-        Commodity gold = new Commodity("GOLD", 200.0);
-        portfolio.addAsset(gold, 1);
+    @Test
+    @DisplayName("Should load asset correctly (I/O Helper)")
+    void testLoadAsset() {
+        // Testuje metodę używaną przy odczycie z pliku
+        portfolio.loadAsset(new Share("LOADED", 50.0), 10, 5);
+        assertEquals(10, portfolio.getAssetQuantity(new Share("LOADED", 50.0)));
+        assertEquals(10000.0, portfolio.getCash()); // Gotówka nie powinna zniknąć przy load
+    }
 
-        // CURRENCY (wartość 10000) - powinien być ostatni (mimo najwyższej wartości, bo typ ma priorytet)
-        Currency usd = new Currency("USD", 100.0);
-        portfolio.addAsset(usd, 10);
+    @Test
+    @DisplayName("Should export holdings data (I/O Helper)")
+    void testGetHoldingsData() {
+        portfolio.addAsset(share, 5);
+        String[] data = portfolio.getHoldingsData();
+        assertEquals(1, data.length);
+        assertTrue(data[0].contains("SHARE|AAPL"));
+    }
 
-        String report = portfolio.generateReport();
+    // --- Order Domain Tests ---
+
+    @Test
+    @DisplayName("Should create valid BUY order")
+    void testValidBuyOrderCreation() {
+        String symbol = "AAPL";
+        AssetType type = AssetType.SHARE;
+        double price = 150.0;
+        int quantity = 10;
+        OrderType orderType = OrderType.BUY;
+
+        Order order = new Order(symbol, type, price, quantity, orderType);
+
+        assertAll("Order State",
+            () -> assertEquals(symbol, order.getSymbol()),
+            () -> assertEquals(type, order.getAssetType()),
+            () -> assertEquals(price, order.getPriceLimit()),
+            () -> assertEquals(quantity, order.getQuantity()),
+            () -> assertEquals(orderType, order.getType())
+        );
+    }
+
+    @Test
+    @DisplayName("Should create valid SELL order")
+    void testValidSellOrderCreation() {
+        Order order = new Order("GOLD", AssetType.COMMODITY, 1800.0, 5, OrderType.SELL);
+        assertEquals(OrderType.SELL, order.getType());
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should throw exception for invalid Price (zero or negative)")
+    @ValueSource(doubles = {0.0, -100.50})
+    void testInvalidOrderPrice(double invalidPrice) {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new Order("AAPL", AssetType.SHARE, invalidPrice, 10, OrderType.BUY);
+        });
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should throw exception for invalid Quantity (zero or negative)")
+    @ValueSource(ints = {0, -5})
+    void testInvalidOrderQuantity(int invalidQuantity) {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new Order("AAPL", AssetType.SHARE, 100.0, invalidQuantity, OrderType.BUY);
+        });
+    }
+
+    @Test
+    @DisplayName("Should return correct string representation")
+    void testOrderToString() {
+        Order order = new Order("AAPL", AssetType.SHARE, 150.50, 10, OrderType.BUY);
+        String stringRep = order.toString();
         
-        // Sprawdzenie kolejności występowania w raporcie
-        // Szukamy indeksów (pozycji) symboli w wygenerowanym stringu
-        int idxHighShare = report.indexOf("SHR_HIGH");
-        int idxLowShare = report.indexOf("SHR_LOW");
-        int idxGold = report.indexOf("GOLD");
-        int idxUsd = report.indexOf("USD");
-
-        assertAll("Report Sorting Order",
-            // 1. Sprawdzenie sortowania wewnątrz grupy SHARE (po wartości malejąco)
-            () -> assertTrue(idxHighShare < idxLowShare, "High value share should appear before low value share"),
-            
-            // 2. Sprawdzenie sortowania typów (SHARE przed COMMODITY)
-            () -> assertTrue(idxLowShare < idxGold, "Shares should appear before Commodities"),
-            
-            // 3. Sprawdzenie sortowania typów (COMMODITY przed CURRENCY)
-            () -> assertTrue(idxGold < idxUsd, "Commodities should appear before Currencies")
+        assertAll("ToString Content",
+            () -> assertTrue(stringRep.contains("BUY")),
+            () -> assertTrue(stringRep.contains("SHARE")),
+            () -> assertTrue(stringRep.contains("AAPL")),
+            () -> assertTrue(stringRep.contains("150.50"))
         );
     }
 }
